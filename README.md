@@ -1,5 +1,8 @@
 # 南京大学电费监控脚本
 
+<!-- ELECTRICITY_WEEK_START -->
+<!-- ELECTRICITY_WEEK_END -->
+
 这是一个用于监控南京大学电费充值页面剩余电量的Python脚本，并提供可视化网页面板。
 
 [![仅20次电费变化曲线](data/recent_20_changes.png)](https://file+.vscode-resource.vscode-cdn.net/d%3A/Documents/Github/nju_electric_monitor/data/electricity_trend.png)
