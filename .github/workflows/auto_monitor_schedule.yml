@@ -69,6 +69,84 @@ jobs:
         echo "Running Python wrapper"
         python3 src/run_workflow_wrapper.py
 
+    - name: Update README with weekly electricity
+      if: always()
+      shell: bash
+      run: |
+        CSV_FILE="data/electricity_data.csv"
+        
+        if [ ! -f "$CSV_FILE" ]; then
+          echo "CSV file not found, skipping README update"
+          exit 0
+        fi
+        
+        # 获取过去 7 天每天最后一条记录
+        # 兼容逗号分隔和制表符分隔两种格式
+        awk -F'[,\t]' '
+          NR>1 && NF>=2 {
+            # 提取日期部分（前10个字符）
+            date = substr($1, 1, 10)
+            # 记录每天最后一条数据的值
+            num[date] = $2
+            unit[date] = $3
+          }
+          END {
+            # 输出所有日期，按日期排序
+            n = 0
+            for (d in num) {
+              n++
+              dates[n] = d
+            }
+            # 冒泡排序
+            for (i = 1; i <= n; i++) {
+              for (j = i+1; j <= n; j++) {
+                if (dates[i] > dates[j]) {
+                  tmp = dates[i]
+                  dates[i] = dates[j]
+                  dates[j] = tmp
+                }
+              }
+            }
+            # 只输出最后 7 天
+            start = (n > 7) ? n - 6 : 1
+            for (i = start; i <= n; i++) {
+              d = dates[i]
+              printf "%s|%.2f|%s\n", d, num[d], unit[d]
+            }
+          }
+        ' "$CSV_FILE" > /tmp/weekly_data.txt
+        
+        # 构建 Markdown 表格
+        echo "**最近一周电量**" > /tmp/readme_block.md
+        echo "" >> /tmp/readme_block.md
+        echo "| 日期 | 剩余电量 |" >> /tmp/readme_block.md
+        echo "|------|----------|" >> /tmp/readme_block.md
+        
+        while IFS='|' read -r date num unit; do
+          echo "| $date | ${num} ${unit} |" >> /tmp/readme_block.md
+        done < /tmp/weekly_data.txt
+        
+        echo "" >> /tmp/readme_block.md
+        echo "_最后更新：$(date -u '+%Y-%m-%d %H:%M' | awk '{print $1+0, $2}')（UTC）_" >> /tmp/readme_block.md
+        
+        # 替换 README 中标记之间的内容
+        if [ -f README.md ]; then
+          awk '
+            BEGIN { skip = 0 }
+            /<!-- ELECTRICITY_WEEK_START -->/ {
+              print
+              while ((getline line < "/tmp/readme_block.md") > 0) print line
+              skip = 1
+              next
+            }
+            /<!-- ELECTRICITY_WEEK_END -->/ { skip = 0; print; next }
+            !skip { print }
+          ' README.md > README.tmp && mv README.tmp README.md
+          echo "README updated successfully"
+        else
+          echo "README.md not found"
+        fi
+        
     - name: Commit and push changes
       if: always()
       shell: bash
@@ -84,6 +162,10 @@ jobs:
         git add -A data/ || echo "no data/ changes"
         git commit -m "Auto update: data (run ${GITHUB_RUN_ID})" -q || echo "No data changes to commit"
 
+        # 提交 README 变更（如果有）
+        git add README.md || echo "no README changes"
+        git commit -m "Auto update: README (run ${GITHUB_RUN_ID})" -q || echo "No README changes to commit"
+        
         # 提交 logs/ 目录的变更（如果有）
         git add -A logs/ || echo "no logs/ changes"
         git commit -m "Auto update: logs (run ${GITHUB_RUN_ID})" -q || echo "No logs changes to commit"
