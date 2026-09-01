@@ -2,7 +2,7 @@ name: Auto Monitor Schedule
 
 on:
   schedule:
-    - cron: "25 1,7,13 * * *" # UTC 时间对应北京时间 9:00, 15:00, 21:00
+    - cron: "25 8,12,18,22 * * *" # UTC 时间对应北京时间 8:25,12:25,18:25,22:25
   workflow_dispatch:
 
 permissions:
